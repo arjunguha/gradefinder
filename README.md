@@ -3,7 +3,8 @@ gradefinder
 
 This program finds weights for assignments and cutoffs for letter grades while
 minimizing the number of students whose grades would change if they received
-just one more point.
+just one more point. The program runs forever, but every 15 seconds it prints
+a new solution.
 
 Usage:
 
@@ -22,8 +23,6 @@ Usage:
   assignments, setting noise to 0.006 will select weights between  0.07 and
   0.13 for each assignment.
 
-- `numSamples` is the number of iterations for the MH Annealer (burn-in is set
-  to `numSamples / 10`. Try 1000 to start.
 
 There is an example `boundaries.csv` file in the root of this repository.
 

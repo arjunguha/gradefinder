@@ -26,7 +26,7 @@ object Helpers {
     def reweight(perWeightNoise: Array[Double]): Array[Double] = {
       val result = Array.fill(len)(1 / len.toDouble)
       for (i <- 0.until(len)) {
-        result(i) = result(i) + 0.05 * perWeightNoise(i)
+        result(i) = result(i) + noise * perWeightNoise(i)
       }
       norm(result)
       result
@@ -39,12 +39,11 @@ object Helpers {
 class Model(assignments: Seq[String],
             gradebook: Seq[Seq[Int]],
             weightNoise: Double,
-            boundaries: Seq[Boundary],
-            samples: Int) {
+            boundaries: Seq[Boundary]) {
 
   val weights = Helpers.makeWeights(weightNoise, assignments.length)
 
-  val bounds: Seq[Element[Int]] = Constant(0) +:
+  val bounds: Seq[Element[Int]] =
     boundaries.map(b => discrete.Uniform(b.min.to(b.max).by(1): _*))
 
 
@@ -68,23 +67,26 @@ class Model(assignments: Seq[String],
   for (entry <- gradebook) {
     val grade = calcGrade(entry)
     for (bound <- bounds) {
-      Apply(bound, grade, isStable).setConstraint(b => if (b) 1 else 0.00001)
+      Apply(bound, grade, isStable).setConstraint(b => if (b) 1 else 0.000001)
     }
   }
 
-  def infer() = {
-    val algorithm = MetropolisHastingsAnnealer(
-      numSamples = samples,
-      scheme = ProposalScheme.default,
-      annealSchedule = Schedule.default(1.0),
-      burnIn = samples / 2)
-    algorithm.start()
-    val bestWeights = algorithm.mostLikelyValue(weights).map(x => math.round(x * 1000) / 1000.0)
+  def evaluate(algorithm: MetropolisHastingsAnnealer): Unit = {
+    val bestWeights = algorithm.mostLikelyValue(weights)
+      .map(x => math.round(x * 1000) / 1000.0)
     val bestBounds = bounds.map(b => algorithm.mostLikelyValue(b))
 
+    val totals = gradebook.map(entry => entry.zip(bestWeights)
+      .map({ case (x,y) => x * y}).sum)
+
     println("-- Grade cutoffs ---")
-    for ((best,boundary) <- bestBounds.zip(boundaries)) {
-      println(s"${boundary.next} : >= $best")
+
+    val letters = "F" :: boundaries.map(_.next).toList
+    val ranges = (0 +: bestBounds.toList :+ 100).sliding(2).toList
+
+    for ((List(lo, hi), letter) <- ranges.zip(letters)) {
+      val n = totals.filter(x => x >= lo && x < hi).length
+      println(s"$letter [$lo, $hi) -- $n students")
     }
 
     println("--- Weights ---")
@@ -92,11 +94,22 @@ class Model(assignments: Seq[String],
       println(s"$assignment: $best")
     }
 
-
-    val totals = gradebook.map(entry => entry.zip(bestWeights).map({ case (x,y) => x * y}).sum)
     val badness = totals.map(total => bestBounds.map(bound => isStable(bound, total))).flatten.filter(x => !x).length
     println("-- Solution quality ---")
     println(s"Number of students whose letter grades will change if they receive 1 more point: $badness")
+  }
+
+  def infer() = {
+    val algorithm = MetropolisHastingsAnnealer(
+      scheme = ProposalScheme.default,
+      annealSchedule = Schedule.default(1.0))
+    algorithm.start()
+
+    while (true) {
+      Thread.sleep(1000 * 15)
+      println("*** Solution with  " + algorithm.getSampleCount + " samples. ***")
+      evaluate(algorithm)
+    }
 
   }
 

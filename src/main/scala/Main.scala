@@ -2,14 +2,13 @@ package gradefinder
 
 object Main extends App {
 
-  if (args.length != 4) {
-    println("Usage: gradefinder <grades.csv> <boundaries.csv> <noise> <samples> ")
+  if (args.length != 3) {
+    println("Usage: gradefinder <grades.csv> <boundaries.csv> <noise>")
     System.exit(1)
   }
 
-  val Array(gradesPath, boundariesPath, noiseStr, samplesStr) = args
+  val Array(gradesPath, boundariesPath, noiseStr) = args
   val noise = noiseStr.toDouble
-  val samples = samplesStr.toInt
 
   def readCSV(path: String): List[List[String]] = {
     import com.github.tototoshi.csv.CSVReader
@@ -27,6 +26,6 @@ object Main extends App {
     case List(min, max, letter) => Boundary(min.toInt, max.toInt, letter)
   }
 
-  val model = new Model(header, gradebook,noise, boundaries, samples)
+  val model = new Model(header, gradebook,noise, boundaries)
   model.infer()
 }
